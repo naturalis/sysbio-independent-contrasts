@@ -1,0 +1,184 @@
+---
+title: "Independent contrasts of sex-specific body mass measurements in spiders"
+author: "Jeremy Miller & Rutger Vos"
+date: "28/11/2022"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Introduction
+
+When analysing the behaviour of trait measurements (such as body mass) across
+sets of species we have to keep in mind that biological species are not 
+independent entities. All life forms are related to one another; all sit
+somewhere on the tree of life. Closely related species probably resemble each
+other to some extent merely because they share common ancestors from which 
+they inherit many of their attributes. This shared history is a bit problematic
+when doing statistical analyses as many methods assume all observations are
+independent of one another. One way to deal with this is to analyse something
+different: not the direct measurements we can do on the species, but the 
+contrasting amounts of evolutionary change the different lineages have 
+accumulated after they branched off from one another. To figure out what those
+amounts of independent change are, we must know the branching pattern. Hence
+we need to involve the phylogenetic history in our analysis. In this tutorial
+we demonstrate how that works in the R programming language, which most of you
+have encountered in at least one previous statistics course. All the code,
+data, and results of this tutorial are available here:
+https://github.com/naturalis/sysbio-independent-contrasts
+
+# Loading raw measurements
+
+Here we load the measurement data. This input data is in comma-separated format,
+with a header that contains column titles. We load this data from the web and
+give some summary statistics:
+
+```{r csv}
+mass_data <- read.csv("https://raw.githubusercontent.com/naturalis/sysbio-independent-contrasts/main/data/MeasurementsPractical.csv")
+row.names(mass_data) <- mass_data$Species
+summary(mass_data)
+```
+
+It appears we have 111 species. For each of those species we have the mass of
+Males and Females, as well as the mass Ratio. The lower bound for body mass 
+seems not to differ much between sexes, while on the upper extreme, females can
+become substantially heavier in some species. However, we have to consider this
+in the context of their evolutionary history.
+
+# Loading tree data
+
+Let's now import a phylogeny. Phylogenetic data comes in a variety of file 
+formats (and there are dialects within formats!). None of these file types are
+read by the base install of R: we have to use an additional package. Here we
+will use the `ape` package, which has a way of representing tree shapes that
+has been adopted by many other packages, so it is kind of an informal standard.
+
+```{r tree}
+library(ape) # if you don't have this, do 'install.packages("ape")'
+phy <- read.nexus('https://raw.githubusercontent.com/naturalis/sysbio-independent-contrasts/main/data/multi_spiders_musc_Beast_10m.tree')
+plot.phylo(phy, show.tip.label = F)
+```
+
+The above tree is a rooted, ultrametric tree, i.e. there is a sense of 
+evolutionary direction (which nodes came first, which came later) and there is
+an estimate of timing such that all extant lineages line up in the present.
+Let's think this through:
+
+1. For independent contrasts, does the tree have to be rooted? If so, why?
+2. Does the tree have to have branch lengths?
+3. Does the tree have to be ultrametric?
+
+# Reconciling measurements and tree
+
+We now have a tree object that internally has a somewhat complex structure
+(in Rstudio you can explore this in the 'Environment' tab), which includes a
+vector of tip labels. We also have a data frame where each row corresponds with
+a species. The data frame is not in the same order as the vector of tip labels.
+We absolutely have to make sure that R knows what tip corresponds with what
+row in the data frame otherwise our analysis will be garbage. Here we are going
+to line up the two data sources and make sure we have the same entities, with
+the same names, in both. An easy way to do this is using the `geiger` package,
+which can interact with trees read by `ape`:
+
+```{r map}
+library(picante)
+sorted <- match.phylo.data(phy, mass_data)
+phy <- sorted$phy
+mass_data <- sorted$data
+```
+
+There were some taxa in the tree not in the data (and vice versa). We have now
+pruned the data so that we just have the intersection between the two.
+
+# Plotting data
+
+Now that our data are reconciled, let's plot the measurements for male and 
+female separately and see if there is any phylogenetic structure to this:
+
+```{r plot}
+library(phytools)
+# make named vectors
+male_mass <- as.numeric(mass_data$Male)
+female_mass <- as.numeric(mass_data$Female)
+names(male_mass) <- mass_data$Species
+names(female_mass) <- mass_data$Species
+
+# make two continuous trait mappings
+male_map <-contMap(phy, male_mass, plot=F)
+female_map <-contMap(phy, female_mass, plot=F, invert=T)
+
+# set up the plot
+par(mfrow=c(1,2))
+plot(male_map,lwd=3,ftype="off")
+plot(female_map,lwd=3,direction="leftwards",ftype="off")
+```
+
+```
+dev.off()
+```
+
+The mirrored plot shows male mass on the left and female on the right. Let's 
+interpret:
+
+1. Can you see phylogenetic structure to female mass? Do some closely related
+   species resemble each other a lot?
+2. If 'high mass' is green or blue, how many times did 'high mass' evolve 
+   independently?
+    
+# Calculating independent contrasts
+
+We are now going to calculate the independent contrasts for male mass and 
+female mass.
+
+```{r pic}
+male_pic <- pic(male_mass, phy)
+female_pic <- pic(female_mass, phy)
+plot(male_pic, female_pic)
+```
+
+1. Why is there one fewer contrast than there were species in our (pruned) data set?
+2. How can there be negative values? Is there a way to make those positive?
+3. Try to formulate what has happened in certain contrasts: "In some cases,
+   small increases in *this contrast* corresponded with large increases in
+   *that contrast*".
+   
+# Regression analysis
+   
+Now let's do a simple regression. Note that we have to force the intercept of
+the regression line through the origin (why?), hence the extra term in the 
+formula:
+
+```{r regress}
+regress <- lm(female_pic ~ male_pic - 1)
+summary(regress)
+```
+
+We can say with confidence that male mass is a highly significant (***) 
+predictor of female mass. We can also see that this relationship is positive.
+Across the entirety of the data set, in most cases any change in male mass 
+(evolutionary increase or decrease) is matched by a change in the same direction
+- hence positive coefficient - and of approximately the same magnitude.
+
+Let's plot the regression line:
+
+```{r line}
+plot(male_pic, female_pic)
+abline(lm(female_pic ~ male_pic - 1))
+```
+
+It should be reasonably clear that there are only very few points in this 
+system where one sex shifts greatly relative to the other. For example, there
+is a single point where the absolute residual is greater than two (and in fact
+is nearly three). In human terms, this means that there is a single point on 
+the tree where females became nearly three times the mass of males. In other
+words, one event whose outcome was then retained in all descendants. Can you
+point out where that event took place?
+
+# Conclusions
+
+- Phylogenetic independent contrasts make us look at the direction and 
+  magnitude of change on a tree rather than at raw values.
+- The contrasts can be analysed in a regression analysis provided we constrain
+  the regression line through the origin.
+- The residuals that we thus obtain can point us towards events of noticeable
+  magnitude, the results of which might be carried around by many descendants.
