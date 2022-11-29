@@ -3,6 +3,7 @@ title: "Independent contrasts of sex-specific body mass measurements in spiders"
 author: "Jeremy Miller & Rutger Vos"
 date: "28/11/2022"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
 ---
@@ -33,7 +34,9 @@ with a header that contains column titles. We load this data from the web and
 give some summary statistics:
 
 ```{r csv}
-length_data <- read.csv("https://raw.githubusercontent.com/naturalis/sysbio-independent-contrasts/main/data/MeasurementsPractical.csv")
+repo <- 'https://raw.githubusercontent.com/naturalis/sysbio-independent-contrasts/'
+data <- paste0(repo, 'main/data/')
+length_data <- read.csv(paste0(data, "MeasurementsPractical.csv"))
 row.names(length_data) <- length_data$Species
 summary(length_data)
 ```
@@ -54,7 +57,7 @@ has been adopted by many other packages, so it is kind of an informal standard.
 
 ```{r tree}
 library(ape) # if you don't have this, do 'install.packages("ape")'
-phy <- read.nexus('https://raw.githubusercontent.com/naturalis/sysbio-independent-contrasts/main/data/multi_spiders_musc_Beast_10m.tree')
+phy <- read.nexus(paste0(data, 'multi_spiders_musc_Beast_10m.tree'))
 plot.phylo(phy, show.tip.label = F)
 ```
 
