@@ -1,5 +1,5 @@
 ---
-title: "Independent contrasts of sex-specific body mass measurements in spiders"
+title: "Independent contrasts of dimorphic body length measurements in spiders"
 author: "Jeremy Miller & Rutger Vos"
 date: "28/11/2022"
 output:
