@@ -12,3 +12,5 @@ This folder contains input data:
   generations. Tree is in Nexus format with a separate taxa block and a 
   translation table. Embedded in the tree are summary statistics in figtree 
   syntax.
+  [View in IcyTree](https://icytree.org?url=https://raw.githubusercontent.com/naturalis/sysbio-independent-contrasts/main/data/multi_spiders_musc_MrB_2000000.nex.con.tre).
+
